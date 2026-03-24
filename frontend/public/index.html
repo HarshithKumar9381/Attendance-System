@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Anurag University</title>
+  <script>
+    // Check if user is authenticated
+    const isLoggedIn = localStorage.getItem("facultyAuthenticated");
+    
+    if (isLoggedIn === "true") {
+      // User is logged in, show attendance system
+      window.location.href = "/attendance.html";
+    } else {
+      // User is not logged in, show login page
+      window.location.href = "/login.html";
+    }
+  </script>
+</head>
+<body>
+  <p>Redirecting to Anurag University...</p>
+</body>
+</html>

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>University Faculty Portal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="aurora aurora-1"></div>
+    <div class="aurora aurora-2"></div>
+
+    <main class="app-shell">
+      <header class="hero">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <h1>University Faculty Portal</h1>
+          <button id="logoutBtn" type="button" style="background: #dc2626; padding: 0.6rem 1.2rem; border: 0; border-radius: 8px; color: white; cursor: pointer; font-weight: 600; transition: background 200ms ease;">
+            Logout
+          </button>
+        </div>
+      </header>
+
+      <section class="top-row">
+        <div class="card">
+          <h2>Select Class, Subject and Date</h2>
+          <div class="date-controls">
+            <select id="classSelect" aria-label="Select Class">
+              <option value="DS-A" selected>DS-A</option>
+              <option value="DS-B">DS-B</option>
+            </select>
+            <select id="subjectSelect" aria-label="Select Subject">
+              <option value="JAVA" selected>Java</option>
+              <option value="PYTHON">Python</option>
+              <option value="C">C</option>
+              <option value="R">R</option>
+            </select>
+            <input id="attendanceDate" type="date" />
+            <small class="date-hint" id="dateFormatHint"></small>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Add New Student To Class</h2>
+          <small class="date-hint" id="studentClassHint">Adding student to: DS-A</small>
+          <form id="studentForm" class="stack">
+            <input id="studentName" type="text" placeholder="Student Name" required />
+            <input id="rollNumber" type="text" placeholder="Roll Number (e.g. CSE045)" required />
+            <button type="submit">Add Student</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="table-header">
+          <h2>Mark Attendance</h2>
+          <div class="header-actions">
+            <button id="markAllPresentBtn" type="button" class="btn-alt">Mark All Present</button>
+            <button id="markAllAbsentBtn" type="button" class="btn-alt">Mark All Absent</button>
+            <button id="saveAttendanceBtn" type="button">Save Attendance</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Roll Number</th>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Remarks</th>
+              </tr>
+            </thead>
+            <tbody id="attendanceTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <p id="statusMessage" class="status-message"></p>
+    </main>
+
+    <div id="successModal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-icon">✓</div>
+        <h2>Attendance Saved Successfully</h2>
+        <p id="modalMessage"></p>
+        <button id="closeModalBtn" class="modal-btn">OK</button>
+      </div>
+    </div>
+
+    <div id="alreadyMarkedModal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-icon warning">⚠</div>
+        <h2>Attendance Already Marked</h2>
+        <p id="alreadyMarkedMessage">Attendance for this date has already been marked.</p>
+        <div class="modal-buttons">
+          <button id="editAttendanceBtn" class="modal-btn edit-btn">Edit Attendance</button>
+          <button id="closeAlreadyMarkedBtn" class="modal-btn">OK</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="logoutConfirmModal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-icon warning">⚠</div>
+        <h2>Confirm Logout</h2>
+        <p>Are you sure you want to logout?</p>
+        <div class="modal-buttons">
+          <button id="confirmLogoutBtn" class="modal-btn" style="background: #dc2626;">Logout</button>
+          <button id="cancelLogoutBtn" class="modal-btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/config.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>

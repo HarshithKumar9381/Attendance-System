@@ -1,0 +1,14 @@
+{
+  "name": "attendance-frontend",
+  "version": "1.0.0",
+  "description": "Attendance Management System - Frontend",
+  "private": true,
+  "main": "public/login.html",
+  "scripts": {
+    "dev": "python -m http.server 3000",
+    "start": "python -m http.server 3000"
+  },
+  "keywords": ["attendance", "frontend", "login"],
+  "author": "",
+  "license": "MIT"
+}
