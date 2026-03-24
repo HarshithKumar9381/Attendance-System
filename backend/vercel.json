@@ -1,11 +1,8 @@
 {
   "version": 2,
   "env": {
-    "DB_HOST": "@db_host",
-    "DB_PORT": "@db_port",
-    "DB_USER": "@db_user",
-    "DB_PASSWORD": "@db_password",
-    "DB_NAME": "@db_name",
+    "DATABASE_URL": "@database_url",
+    "NODE_ENV": "production",
     "FRONTEND_URL": "@frontend_url"
   },
   "buildCommand": "npm install",

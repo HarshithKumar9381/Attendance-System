@@ -1,7 +1,7 @@
 const path = require("path");
 const express = require("express");
 const cors = require("cors");
-const { pool, initializeDatabase, run, all, get, closeDatabase } = require("./api/db");
+const { initializeDatabase, run, all, get, closeDatabase } = require("./api/db");
 
 const app = express();
 const PORT = process.env.PORT || 4000;

@@ -1,180 +1,94 @@
-const mysql = require("mysql2/promise");
+const { Pool } = require("pg");
 require("dotenv").config();
 
-const DB_HOST = process.env.DB_HOST || "localhost";
-const DB_PORT = Number(process.env.DB_PORT || 3306);
-const DB_USER = process.env.DB_USER || "root";
-const DB_PASSWORD = process.env.DB_PASSWORD || "";
-const DB_NAME = process.env.DB_NAME || "attendance_management";
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL || 
+    `postgresql://${process.env.DB_USER || 'postgres'}:${process.env.DB_PASSWORD || 'password'}@${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || 5432}/${process.env.DB_NAME || 'attendance_management'}`,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
+});
 
-const pool = mysql.createPool({
-  host: DB_HOST,
-  port: DB_PORT,
-  user: DB_USER,
-  password: DB_PASSWORD,
-  database: DB_NAME,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle client', err);
 });
 
 async function initializeDatabase() {
-  const bootstrapConnection = await mysql.createConnection({
-    host: DB_HOST,
-    port: DB_PORT,
-    user: DB_USER,
-    password: DB_PASSWORD
-  });
-
-  await bootstrapConnection.query(`CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\``);
-  await bootstrapConnection.end();
-
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS students (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      name VARCHAR(120) NOT NULL,
-      roll_number VARCHAR(40) NOT NULL UNIQUE,
-      class_name VARCHAR(20) NOT NULL DEFAULT 'DS-A',
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  // Backward-compatible migration for existing databases.
-  const [classColumnRows] = await pool.query(
-    `
-    SELECT COLUMN_NAME
-    FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = ?
-      AND TABLE_NAME = 'students'
-      AND COLUMN_NAME = 'class_name'
-    `,
-    [DB_NAME]
-  );
-
-  if (!classColumnRows.length) {
+  try {
+    // Create students table
     await pool.query(`
-      ALTER TABLE students
-      ADD COLUMN class_name VARCHAR(20) NOT NULL DEFAULT 'DS-A'
+      CREATE TABLE IF NOT EXISTS students (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(120) NOT NULL,
+        roll_number VARCHAR(40) NOT NULL UNIQUE,
+        class_name VARCHAR(20) NOT NULL DEFAULT 'DS-A',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
     `);
-  }
 
-  // Existing students are assigned to DS-A by default.
-  await pool.query(`
-    UPDATE students
-    SET class_name = 'DS-A'
-    WHERE class_name IS NULL OR class_name = ''
-  `);
-
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS attendance (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      student_id INT NOT NULL,
-      date DATE NOT NULL,
-      subject VARCHAR(20) NOT NULL DEFAULT 'JAVA',
-      status ENUM('present', 'absent') NOT NULL,
-      remarks VARCHAR(255),
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      CONSTRAINT fk_attendance_student
+    // Create attendance table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS attendance (
+        id SERIAL PRIMARY KEY,
+        student_id INTEGER NOT NULL,
+        date DATE NOT NULL,
+        subject VARCHAR(20) NOT NULL DEFAULT 'JAVA',
+        status VARCHAR(20) NOT NULL,
+        remarks VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
-      UNIQUE KEY unique_student_date_subject (student_id, date, subject)
-    )
-  `);
-
-  const [subjectColumnRows] = await pool.query(
-    `
-    SELECT COLUMN_NAME
-    FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = ?
-      AND TABLE_NAME = 'attendance'
-      AND COLUMN_NAME = 'subject'
-    `,
-    [DB_NAME]
-  );
-
-  if (!subjectColumnRows.length) {
-    await pool.query(`
-      ALTER TABLE attendance
-      ADD COLUMN subject VARCHAR(20) NOT NULL DEFAULT 'JAVA' AFTER date
+        UNIQUE(student_id, date, subject)
+      )
     `);
-  }
 
-  await pool.query(`
-    UPDATE attendance
-    SET subject = 'JAVA'
-    WHERE subject IS NULL OR subject = ''
-  `);
-
-  const [legacyUniqueIndexRows] = await pool.query(
-    `
-    SELECT INDEX_NAME
-    FROM information_schema.STATISTICS
-    WHERE TABLE_SCHEMA = ?
-      AND TABLE_NAME = 'attendance'
-      AND INDEX_NAME = 'unique_student_date'
-    `,
-    [DB_NAME]
-  );
-
-  if (legacyUniqueIndexRows.length) {
-    const [studentIdIndexRows] = await pool.query(
-      `
-      SELECT INDEX_NAME
-      FROM information_schema.STATISTICS
-      WHERE TABLE_SCHEMA = ?
-        AND TABLE_NAME = 'attendance'
-        AND INDEX_NAME = 'idx_attendance_student_id'
-      `,
-      [DB_NAME]
-    );
-
-    if (!studentIdIndexRows.length) {
-      await pool.query(
-        "ALTER TABLE attendance ADD INDEX idx_attendance_student_id (student_id)"
-      );
-    }
-
-    await pool.query("ALTER TABLE attendance DROP INDEX unique_student_date");
-  }
-
-  const [subjectUniqueIndexRows] = await pool.query(
-    `
-    SELECT INDEX_NAME
-    FROM information_schema.STATISTICS
-    WHERE TABLE_SCHEMA = ?
-      AND TABLE_NAME = 'attendance'
-      AND INDEX_NAME = 'unique_student_date_subject'
-    `,
-    [DB_NAME]
-  );
-
-  if (!subjectUniqueIndexRows.length) {
-    await pool.query(
-      "ALTER TABLE attendance ADD UNIQUE KEY unique_student_date_subject (student_id, date, subject)"
-    );
+    console.log("Database initialized successfully");
+  } catch (err) {
+    console.error("Error initializing database:", err);
+    throw err;
   }
 }
 
 async function run(query, params = []) {
-  const [result] = await pool.execute(query, params);
-  return { id: result.insertId || 0, changes: result.affectedRows || 0 };
+  try {
+    const result = await pool.query(query, params);
+    return { id: result.rows[0]?.id || 0, changes: result.rowCount || 0 };
+  } catch (err) {
+    console.error("Database error:", err);
+    throw err;
+  }
 }
 
 async function all(query, params = []) {
-  const [rows] = await pool.execute(query, params);
-  return rows;
+  try {
+    const result = await pool.query(query, params);
+    return result.rows || [];
+  } catch (err) {
+    console.error("Database error:", err);
+    throw err;
+  }
 }
 
 async function get(query, params = []) {
-  const [rows] = await pool.execute(query, params);
-  return rows[0] || null;
+  try {
+    const result = await pool.query(query, params);
+    return result.rows[0] || null;
+  } catch (err) {
+    console.error("Database error:", err);
+    throw err;
+  }
 }
 
 async function closeDatabase() {
-  await pool.end();
+  try {
+    await pool.end();
+    console.log("Database connection closed");
+  } catch (err) {
+    console.error("Error closing database:", err);
+    throw err;
+  }
 }
 
 module.exports = {
-  pool,
   initializeDatabase,
   run,
   all,
