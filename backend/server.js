@@ -23,7 +23,7 @@ app.get("/api/students", async (req, res) => {
 
   try {
     const students = await all(
-      "SELECT id, name, roll_number, class_name FROM students WHERE class_name = ? ORDER BY roll_number ASC",
+      "SELECT id, name, roll_number, class_name FROM students WHERE class_name = $1 ORDER BY roll_number ASC",
       [className]
     );
     res.json(students);
@@ -49,12 +49,12 @@ app.post("/api/students", async (req, res) => {
 
   try {
     await run(
-      "INSERT INTO students(name, roll_number, class_name) VALUES(?, ?, ?)",
+      "INSERT INTO students(name, roll_number, class_name) VALUES($1, $2, $3)",
       [name.trim(), rollNumber.trim().toUpperCase(), normalizedClass]
     );
     res.status(201).json({ message: "Student added successfully" });
   } catch (error) {
-    if (error.code === "ER_DUP_ENTRY") {
+    if (error.code === "23505") {
       res.status(409).json({ error: "Roll number already exists" });
       return;
     }
@@ -92,13 +92,13 @@ app.get("/api/attendance", async (req, res) => {
         a.id AS attendance_id,
         s.name,
         s.roll_number,
-        IFNULL(a.status, 'absent') AS status,
-        IFNULL(a.remarks, '') AS remarks,
+        COALESCE(a.status, 'absent') AS status,
+        COALESCE(a.remarks, '') AS remarks,
         a.date
       FROM students s
       LEFT JOIN attendance a
-        ON a.student_id = s.id AND a.date = ? AND a.subject = ?
-      WHERE s.class_name = ?
+        ON a.student_id = s.id AND a.date = $1 AND a.subject = $2
+      WHERE s.class_name = $3
       ORDER BY s.roll_number ASC
       `,
       [date, subject, className]
@@ -136,7 +136,7 @@ app.get("/api/attendance/status", async (req, res) => {
       SELECT COUNT(*) AS record_count
       FROM attendance a
       INNER JOIN students s ON s.id = a.student_id
-      WHERE a.date = ? AND a.subject = ? AND s.class_name = ?
+      WHERE a.date = $1 AND a.subject = $2 AND s.class_name = $3
       `,
       [date, subject, className]
     );
@@ -166,11 +166,7 @@ app.post("/api/attendance/mark", async (req, res) => {
     return;
   }
 
-  const connection = await pool.getConnection();
-
   try {
-    await connection.beginTransaction();
-
     for (const record of records) {
       const studentId = Number(record.studentId);
       const status = record.status;
@@ -180,26 +176,23 @@ app.post("/api/attendance/mark", async (req, res) => {
         throw new Error("Invalid record format");
       }
 
-      await connection.execute(
+      await run(
         `
         INSERT INTO attendance(student_id, date, subject, status, remarks)
-        VALUES(?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-          status = VALUES(status),
-          remarks = VALUES(remarks)
+        VALUES($1, $2, $3, $4, $5)
+        ON CONFLICT(student_id, date, subject)
+        DO UPDATE SET
+          status = EXCLUDED.status,
+          remarks = EXCLUDED.remarks
         `,
         [studentId, date, normalizedSubject, status, remarks]
       );
     }
 
-    await connection.commit();
     res.json({ message: "Attendance saved successfully" });
   } catch (error) {
-    await connection.rollback();
     console.error("Error saving attendance:", error);
     res.status(500).json({ error: "Failed to save attendance" });
-  } finally {
-    connection.release();
   }
 });
 
